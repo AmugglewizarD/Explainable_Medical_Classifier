@@ -27,6 +27,7 @@ def train_model(model, dataloader, criterion, optimizer, num_epochs):
     """Generic training loop for a single model."""
     
     best_val_loss = float('inf')
+    best_model_state = model.state_dict() # Initialize with base weights
     
     for epoch in range(num_epochs):
         start_time = time.time()
@@ -192,8 +193,8 @@ def main():
         
         best_3d_state = train_model(model_3d, dataloaders_3d, criterion, optimizer, EPOCHS)
 
-        # Save the final best model
-        model_3d.load_state_dot(best_3d_state)
+        # *** THIS LINE IS FIXES THE TYPO ***
+        model_3d.load_state_dict(best_3d_state)
         model_3d_wrapper.save_checkpoint(MODEL_3D_CHECKPOINT)
         print("Best 3D model saved.")
         
