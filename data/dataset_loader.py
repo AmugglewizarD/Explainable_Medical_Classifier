@@ -11,7 +11,7 @@ import json
 
 from config import (
     MODALITY_CONFIG, IMG_SIZE_2D, BATCH_SIZE, 
-    DATA_ROOT, CLASS_MAP_JSON
+    DATA_ROOT, CLASS_MAP_JSON, NUM_WORKERS # FIXED: Added NUM_WORKERS
 )
 
 # --- MONAI Imports ---
