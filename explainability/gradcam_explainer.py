@@ -29,6 +29,9 @@ class GradCAM3DExplainer:
         # GradCAM requires the model to be in training mode to hook properly
         self.model.train() 
         
+        # FIXED: Ensure tensor is on the same device as the model
+        volume_tensor_batch = volume_tensor_batch.to(next(self.model.parameters()).device)
+        
         # MONAI's GradCAM computes the map
         # We get one map per item in the batch
         heatmap = self.gradcam(x=volume_tensor_batch, class_idx=label)
