@@ -9,32 +9,42 @@ ROOT = Path(__file__).parent
 
 # Data
 DATA_ROOT = ROOT / "data" / "raw"
-BATCH_SIZE = 32
+# This file will be CREATED by the data loader
+CLASS_MAP_JSON = ROOT / "data" / "class_map.json"
+
+BATCH_SIZE = 16 # Reduced for training stability
 NUM_WORKERS = 4
 
 # --- 2D Configuration ---
-IMG_SIZE_2D = 224  # ViT 2D input size
+IMG_SIZE_2D = 224
 
 # --- 3D Configuration ---
-# MONAI ViT standard input size
 IMG_SIZE_3D = (96, 96, 96) # (Depth, Height, Width)
 
 # --- Multimodal Configuration ---
 MODALITY_CONFIG = {
     "XRAY": {"dim": 2, "channels": 3, "size": IMG_SIZE_2D, "model_type": "2D"},
-    "CT": {"dim": 3, "channels": 1, "size": IMG_SIZE_3D, "model_type": "3D"}, 
+    "HISTOPATHOLOGY": {"dim": 2, "channels": 3, "size": IMG_SIZE_2D, "model_type": "2D"},
     "MRI": {"dim": 3, "channels": 1, "size": IMG_SIZE_3D, "model_type": "3D"},
 }
-DEFAULT_MODALITY = "XRAY" 
+
+# --- Training Hyperparameters ---
+LEARNING_RATE = 1e-4
+EPOCHS = 10
+# Directory to save trained model weights
+SAVE_PATH = ROOT / "models" / "weights"
+
+# --- Model Checkpoints ---
+# These paths are where the best trained models will be saved
+MODEL_2D_CHECKPOINT = SAVE_PATH / "best_model_2d.pth"
+MODEL_3D_CHECKPOINT = SAVE_PATH / "best_model_3d.pth"
 
 # Model
-VIT_2D_PRETRAINED = "google/vit-base-patch16-224-in21k"  # 2D ViT
-VIT_3D_PRETRAINED = "monai/vitautoenc" # MONAI ViT (conceptual path)
-NUM_LABELS = 2  # Assuming binary classification
+VIT_2D_PRETRAINED = "google/vit-base-patch16-224-in21k"
+VIT_3D_PRETRAINED = "monai/vitautoenc" # Not used, we train from scratch
 
 # Explainability
 LIME_SAMPLES = 1000
-SHAP_BACKGROUND_SAMPLES = 50
 
 # Device
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
