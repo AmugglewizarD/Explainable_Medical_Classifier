@@ -9,21 +9,37 @@ import torch.nn.functional as F
 import numpy as np
 from config import (
     VIT_2D_PRETRAINED, NUM_LABELS, DEVICE, 
-    MODALITY_CONFIG, IMG_SIZE_3D
+    MODALITY_CONFIG, IMG_SIZE_3D,
+    MODEL_2D_CHECKPOINT, MODEL_3D_CHECKPOINT
 )
 from PIL import Image
+import os
 
-# --- MONAI Imports for 3D ViT ---
 from monai.networks.nets import ViT
 from monai.utils import ensure_tuple
 
-# --- 2D Model Wrapper (Original) ---
+# --- 2D Model Wrapper (HuggingFace) ---
 class ViT2DWrapper:
-    def __init__(self, pretrained_name=VIT_2D_PRETRAINED, num_labels=NUM_LABELS):
-        self.feature_extractor = AutoFeatureExtractor.from_pretrained(pretrained_name)
-        self.model = ViTForImageClassification.from_pretrained(pretrained_name, num_labels=num_labels)
+    def __init__(self, num_labels, load_from_scratch=False):
+        if load_from_scratch:
+            # Initialize for training
+            self.feature_extractor = AutoFeatureExtractor.from_pretrained(VIT_2D_PRETRAINED)
+            self.model = ViTForImageClassification.from_pretrained(
+                VIT_2D_PRETRAINED, 
+                num_labels=num_labels,
+                ignore_mismatched_sizes=True # Allow re-sizing classifier head
+            )
+        else:
+            # Initialize for inference (load fine-tuned model)
+            if not MODEL_2D_CHECKPOINT.exists():
+                raise FileNotFoundError(f"Trained model not found at {MODEL_2D_CHECKPOINT}. Please run train.py first.")
+            print(f"Loading trained 2D model from {MODEL_2D_CHECKPOINT}...")
+            # We must load the feature extractor from the same path
+            self.feature_extractor = AutoFeatureExtractor.from_pretrained(MODEL_2D_CHECKPOINT)
+            self.model = ViTForImageClassification.from_pretrained(MODEL_2D_CHECKPOINT)
+            
         self.model.to(DEVICE)
-        self.model.eval()
+        self.num_labels = num_labels
 
     def preprocess(self, pil_images):
         inputs = self.feature_extractor(images=pil_images, return_tensors="pt")
@@ -32,90 +48,93 @@ class ViT2DWrapper:
 
     @torch.no_grad()
     def predict(self, pil_images):
+        self.model.eval()
         if not pil_images:
-            return np.array([]).reshape(0, NUM_LABELS)
+            return np.array([]).reshape(0, self.num_labels)
         pixel_values = self.preprocess(pil_images)
         outputs = self.model(pixel_values)
         logits = outputs.logits
         probs = F.softmax(logits, dim=-1).cpu().numpy()
         return probs
     
-    # ... (save/load methods remain as before) ...
+    def save_checkpoint(self, path):
+        """Saves the fine-tuned model and feature extractor."""
+        print(f"Saving 2D model checkpoint to {path}")
+        os.makedirs(path, exist_ok=True)
+        self.model.save_pretrained(path)
+        self.feature_extractor.save_pretrained(path)
 
-# --- 3D Model Wrapper (Replaced Mock with MONAI ViT) ---
+# --- 3D Model Wrapper (MONAI) ---
 class ViT3DWrapper:
     """Real 3D Vision Transformer wrapper using MONAI."""
-    def __init__(self, num_labels=NUM_LABELS):
-        cfg_3d = MODALITY_CONFIG["CT"] # Use CT config as default
+    def __init__(self, num_labels, load_from_scratch=False):
+        cfg_3d = MODALITY_CONFIG["MRI"] # Use MRI config as default
         in_channels = cfg_3d["channels"]
         img_size_3d = ensure_tuple(cfg_3d["size"])
 
-        # Initialize MONAI Vision Transformer
-        # This is a standard ViT adapted for 3D input.
         self.model = ViT(
-            in_channels=in_channels,
-            img_size=img_size_3d,
-            patch_size=(16, 16, 16),
-            hidden_size=768,
-            mlp_dim=3072,
-            num_layers=12,
-            num_heads=12,
-            classification=True,
-            num_classes=num_labels,
-            dropout_rate=0.1,
+            in_channels=in_channels, img_size=img_size_3d, patch_size=(16, 16, 16),
+            hidden_size=768, mlp_dim=3072, num_layers=12, num_heads=12,
+            classification=True, num_classes=num_labels, dropout_rate=0.1,
         ).to(DEVICE)
         
-        self.model.eval()
+        if not load_from_scratch:
+            # Initialize for inference
+            if not MODEL_3D_CHECKPOINT.exists():
+                raise FileNotFoundError(f"Trained model not found at {MODEL_3D_CHECKPOINT}. Please run train.py first.")
+            print(f"Loading trained 3D model from {MODEL_3D_CHECKPOINT}...")
+            self.load_checkpoint(MODEL_3D_CHECKPOINT)
+            
         self.num_labels = num_labels
 
     def preprocess(self, volume_tensors):
-        """
-        Accepts a list of 3D torch tensors (C, D, H, W) 
-        and stacks them into a batch.
-        """
-        # Ensure all tensors are on the correct device
         volume_batch = torch.stack(volume_tensors).to(DEVICE)
         return volume_batch # Shape (B, C, D, H, W)
 
     @torch.no_grad()
     def predict(self, volume_tensors):
-        """Returns softmax probabilities for given list of 3D volume tensors."""
+        self.model.eval()
         if not volume_tensors:
             return np.array([]).reshape(0, self.num_labels)
         
         volume_batch = self.preprocess(volume_tensors)
-        
-        # MONAI ViT returns (logits, hidden_states)
         logits, _ = self.model(volume_batch)
         probs = F.softmax(logits, dim=-1).cpu().numpy()
         return probs
 
-# --- Multimodal Router (Unchanged) ---
+    def save_checkpoint(self, path):
+        """Saves the fine-tuned 3D model weights."""
+        print(f"Saving 3D model checkpoint to {path}")
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        torch.save(self.model.state_dict(), path)
+
+    def load_checkpoint(self, path):
+        """Loads fine-tuned 3D model weights."""
+        self.model.load_state_dict(torch.load(path, map_location=DEVICE))
+
+# --- Multimodal Router ---
 class MultimodalViTWrapper:
     """Routes inference to the correct specialized model based on modality."""
-    def __init__(self):
+    def __init__(self, num_labels, load_from_scratch=False):
         self.models = {
-            "2D": ViT2DWrapper(),
-            "3D": ViT3DWrapper()
+            "2D": ViT2DWrapper(num_labels, load_from_scratch),
+            "3D": ViT3DWrapper(num_labels, load_from_scratch)
         }
-        print("MultimodalViTWrapper initialized with 2D (HuggingFace) and 3D (MONAI) models.")
+        if load_from_scratch:
+            print("Wrapper initialized in TRAINING mode (from scratch weights).")
+        else:
+            print("Wrapper initialized in INFERENCE mode (loading fine-tuned weights).")
 
     def predict(self, input_data, modality_type):
-        """
-        Predicts based on the modality_type.
-        input_data can be a list of PIL images (2D) or list of Tensors (3D).
-        """
         model_type = MODALITY_CONFIG.get(modality_type, {}).get("model_type")
         if not model_type or model_type not in self.models:
-            raise ValueError(f"Unsupported or misconfigured modality: {modality_type}")
-
+            raise ValueError(f"Unsupported modality: {modality_type}")
         return self.models[model_type].predict(input_data)
     
     def get_model(self, modality_type):
-        """Helper to get the raw underlying model for explainers."""
         model_type = MODALITY_CONFIG.get(modality_type, {}).get("model_type")
-        if model_type == "2D":
-            return self.models["2D"].model
-        elif model_type == "3D":
-            return self.models["3D"].model
-        return None
+        return self.models[model_type].model
+
+    def get_wrapper(self, modality_type):
+        model_type = MODALITY_CONFIG.get(modality_type, {}).get("model_type")
+        return self.models[model_type]
