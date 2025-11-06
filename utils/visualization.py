@@ -67,10 +67,12 @@ def show_shap_explanation(shap_values, image_np, class_names, title="SHAP Explan
          # Handle numpy array case (C, H, W, Ch)
          shap_values = [shap_values[i] for i in range(shap_values.shape[0])]
 
-    # Ensure class_names is a list for labeling
+    # FIXED (Fix 9): Ensure class_names is a list for labeling
     if isinstance(class_names, dict):
-        class_names_list = sorted(class_names.keys(), key=lambda k: class_names[k])
+        # This case is for main.py, which passes a {index: name} map
+        class_names_list = sorted(class_names.values(), key=lambda v: list(class_names.values()).index(v))
     else:
+        # This case is for main.py, which now passes a sorted list
         class_names_list = class_names
 
     shap.image_plot(
