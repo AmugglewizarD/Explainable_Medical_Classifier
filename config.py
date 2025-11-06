@@ -22,7 +22,6 @@ IMG_SIZE_3D = (96, 96, 96) # (Depth, Height, Width)
 # --- Multimodal Configuration ---
 MODALITY_CONFIG = {
     "XRAY": {"dim": 2, "channels": 3, "size": IMG_SIZE_2D, "model_type": "2D"},
-    "ULTRASOUND": {"dim": 2, "channels": 3, "size": IMG_SIZE_2D, "model_type": "2D"},
     "CT": {"dim": 3, "channels": 1, "size": IMG_SIZE_3D, "model_type": "3D"}, 
     "MRI": {"dim": 3, "channels": 1, "size": IMG_SIZE_3D, "model_type": "3D"},
 }
