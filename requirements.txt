@@ -10,3 +10,6 @@ lime
 shap
 scikit-image
 tqdm
+monai
+nibabel
+einops
