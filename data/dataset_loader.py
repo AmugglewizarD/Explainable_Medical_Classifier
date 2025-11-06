@@ -11,7 +11,7 @@ import json
 
 from config import (
     MODALITY_CONFIG, IMG_SIZE_2D, BATCH_SIZE, 
-    DATA_ROOT, CLASS_MAP_JSON, NUM_WORKERS # FIXED: Added NUM_WORKERS
+    DATA_ROOT, CLASS_MAP_JSON, NUM_WORKERS # <-- FIXED (Fix 2)
 )
 
 # --- MONAI Imports ---
@@ -23,38 +23,31 @@ from monai.transforms import (
 
 # --- Dynamic Class Map Builder ---
 def build_class_map():
-    # ... (This function remains unchanged) ...
+    # ... (function is correct) ...
     print("Building class map...")
     all_disease_names = set()
-
     for modality in MODALITY_CONFIG.keys():
         for split in ["train", "test"]:
             labels_path = DATA_ROOT / modality / split / "labels.csv"
             if not labels_path.exists():
                 print(f"Warning: Missing required file {labels_path}")
                 continue
-                
             df = pd.read_csv(labels_path)
             if "disease" not in df.columns:
                 raise ValueError(f"'disease' column not found in {labels_path}")
-                
             all_disease_names.update(df["disease"].unique())
-
     if not all_disease_names:
         raise FileNotFoundError(f"No 'labels.csv' files found in {DATA_ROOT}. Cannot build class map.")
-
     sorted_names = sorted(list(all_disease_names))
     class_map = {name: i for i, name in enumerate(sorted_names)}
-    
     with open(CLASS_MAP_JSON, 'w') as f:
         json.dump(class_map, f, indent=4)
-        
     print(f"Class map built and saved to {CLASS_MAP_JSON}")
     print(f"Classes found: {class_map}")
     return class_map
 
 def load_class_map():
-    # ... (This function remains unchanged) ...
+    # ... (function is correct) ...
     if not CLASS_MAP_JSON.exists():
         raise FileNotFoundError(f"{CLASS_MAP_JSON} not found. Please run train.py first to build the class map.")
     with open(CLASS_MAP_JSON, 'r') as f:
@@ -63,28 +56,23 @@ def load_class_map():
 
 # --- 2D Dataset Classes ---
 class Base2DDataset(Dataset):
-    # ... (This class remains unchanged) ...
+    # ... (function is correct) ...
     def __init__(self, data_dir, transform, class_map, modality):
         self.data_dir = data_dir
         self.transform = transform
         self.class_map = class_map
         self.modality = modality
-
         labels_path = os.path.join(data_dir, "labels.csv")
         if not os.path.exists(labels_path):
             raise FileNotFoundError(f"Required {labels_path} not found.")
-            
         self.label_df = pd.read_csv(labels_path)
-        
         self.image_paths = []
         self.labels = []
-        
         for _, row in self.label_df.iterrows():
             img_path = os.path.join(data_dir, row["image_filename"])
             if not os.path.exists(img_path):
                 print(f"Warning: Image {img_path} listed in CSV but not found on disk.")
                 continue
-            
             self.image_paths.append(img_path)
             self.labels.append(self.class_map[row["disease"]])
 
@@ -95,24 +83,20 @@ class Base2DDataset(Dataset):
         img_path = self.image_paths[idx]
         image = Image.open(img_path).convert("RGB")
         label = self.labels[idx]
-        
         if self.transform:
             image = self.transform(image)
-            
         return image, torch.tensor(label, dtype=torch.long), self.modality
 
 def get_2d_transforms(is_train=True):
-    # ... (This function remains unchanged) ...
+    # ... (function is correct) ...
     transform_list = [
         transforms.Resize((IMG_SIZE_2D, IMG_SIZE_2D)),
     ]
-    
     if is_train:
         transform_list.extend([
             transforms.RandomHorizontalFlip(),
             transforms.RandomRotation(10),
         ])
-        
     transform_list.extend([
         transforms.ToTensor(),
         transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5]),
@@ -121,10 +105,9 @@ def get_2d_transforms(is_train=True):
 
 # --- 3D Dataset (NIfTI Loader for MRI) ---
 def get_mri_transforms(modality, is_train=True):
-    # ... (This function remains unchanged) ...
+    # ... (function is correct) ...
     cfg = MODALITY_CONFIG[modality]
     img_size_3d = cfg["size"]
-    
     transform_list = [
         LoadImaged(keys=["image"]), 
         EnsureChannelFirstd(keys=["image"]),
@@ -134,9 +117,7 @@ def get_mri_transforms(modality, is_train=True):
             b_min=0.0, b_max=1.0, clip=True
         ),
     ]
-    
     if is_train:
-        # Add 3D augmentation
         transform_list.append(
             RandAffined(
                 keys=["image"],
@@ -145,14 +126,13 @@ def get_mri_transforms(modality, is_train=True):
                 scale_range=(0.1, 0.1, 0.1)
             )
         )
-        
     transform_list.append(ToTensord(keys=["image", "label"]))
     return Compose(transform_list)
 
 
 # --- Main Loader Function (for Inference) ---
 def get_dataloader(modality, class_map, split="test", batch_size=BATCH_SIZE, shuffle=True):
-    # ... (This function remains unchanged and is used by main.py) ...
+    # ... (function is correct) ...
     data_dir = DATA_ROOT / modality / split
     is_train = (split == "train")
     
@@ -165,7 +145,6 @@ def get_dataloader(modality, class_map, split="test", batch_size=BATCH_SIZE, shu
         labels_path = data_dir / "labels.csv"
         if not labels_path.exists():
             raise FileNotFoundError(f"Required {labels_path} not found.")
-            
         label_df = pd.read_csv(labels_path)
         data_dicts = []
         for _, row in label_df.iterrows():
@@ -177,10 +156,8 @@ def get_dataloader(modality, class_map, split="test", batch_size=BATCH_SIZE, shu
                 "image": img_path,
                 "label": class_map[row["disease"]]
             })
-
         if not data_dicts:
             print(f"Warning: No valid NIfTI files found for {modality} in {data_dir}.")
-
         transforms_3d = get_mri_transforms(modality, is_train=is_train)
         dataset = MonaiDataset(data=data_dicts, transform=transforms_3d)
         return MonaiDataLoader(dataset, batch_size=batch_size, shuffle=shuffle, num_workers=NUM_WORKERS)
@@ -197,15 +174,19 @@ def get_full_dataset(modality, class_map):
     print(f"Loading full dataset for {modality}...")
     
     if modality in ["XRAY", "HISTOPATHOLOGY"]:
-        # 2D data: We must apply transforms *later*
-        # We create a custom dataset that holds PIL images
+        
+        # FIXED (Fix 7): This dataset now stores paths and loads images lazily
         class CustomPILDataset(Dataset):
             def __init__(self, data_list):
-                self.data_list = data_list # List of (PIL Image, label, modality)
+                # data_list is now a list of (img_path, label, modality)
+                self.data_list = data_list 
             def __len__(self):
                 return len(self.data_list)
             def __getitem__(self, idx):
-                return self.data_list[idx]
+                img_path, label, modality = self.data_list[idx]
+                image = Image.open(img_path).convert("RGB")
+                # Transform is applied later in train.py's TransformSubset
+                return image, torch.tensor(label, dtype=torch.long), modality
 
         data_list = []
         for split in ["train", "test"]:
@@ -220,10 +201,11 @@ def get_full_dataset(modality, class_map):
                     img_path = os.path.join(data_dir, row["image_filename"])
                     if not os.path.exists(img_path):
                         continue
-                    # Load PIL image, but don't transform yet
-                    image = Image.open(img_path).convert("RGB")
+                    
                     label = class_map[row["disease"]]
-                    data_list.append((image, torch.tensor(label, dtype=torch.long), modality))
+                    # FIXED (Fix 7): Append the path, not the loaded image
+                    data_list.append((img_path, label, modality))
+                    
             except Exception as e:
                 print(f"Could not load {split} data for {modality}: {e}")
                 
