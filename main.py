@@ -30,30 +30,19 @@ from utils.metrics import evaluate_model
 from config import MODALITY_CONFIG, DEVICE, IMG_SIZE_2D, RESULTS_DIR, SHAP_NSAMPLES
 
 def get_denormalized_images(batch_tensors):
-    """
-    Denormalizes a batch of 2D tensors for visualization.
-    """
+    # ... (function is correct) ...
     vis_input_list = []
     pil_input_list = []
-    
-    # ViT normalization is mean=0.5, std=0.5
-    # Denorm: (tensor * 0.5) + 0.5
-    
     for img_tensor in batch_tensors:
-        # Denormalize from [-1, 1] to [0, 1]
         denorm_tensor = (img_tensor * 0.5) + 0.5
         denorm_tensor = denorm_tensor.clamp(0, 1)
-        
-        # Create PIL image for model (expects 0-255)
         pil_img = transforms.ToPILImage()(denorm_tensor)
         pil_input_list.append(pil_img)
-        
-        # Create numpy array for explainers (expects 0-255)
         vis_input_list.append(np.array(pil_img))
-            
     return pil_input_list, vis_input_list
 
 def demo_modality(modality_type, multimodal_model, class_map, class_names_list, sample_count=4):
+    # ... (function is correct) ...
     print(f"\n========================================================")
     print(f"DEMO: {modality_type} (Dataset: {modality_type})")
     print(f"========================================================")
@@ -69,12 +58,8 @@ def demo_modality(modality_type, multimodal_model, class_map, class_names_list, 
     # 2. Prepare Inputs based on modality
     if modality_type in ["XRAY", "HISTOPATHOLOGY"]:
         input_tensors, labels = batch[0], batch[1]
-        
         model_input, vis_input_list = get_denormalized_images(input_tensors)
-        
-        # We'll explain the first image
         explainer_input_np = vis_input_list[0] 
-        # We'll use the rest of the batch as the SHAP background
         shap_background_np = np.stack(vis_input_list[1:])
         
     elif modality_type == "MRI":
@@ -93,7 +78,6 @@ def demo_modality(modality_type, multimodal_model, class_map, class_names_list, 
     report = evaluate_model(true_labels_np, preds, labels=list(range(len(class_names_list))))
     show_metrics(report, title=f"Classification Report for {modality_type}")
     
-    # Save the full report to results/
     report_filename = RESULTS_DIR / f"report_{modality_type}.txt"
     with open(report_filename, 'w') as f:
         f.write(f"Classification Report for {modality_type}\n\n")
@@ -125,10 +109,7 @@ def demo_modality(modality_type, multimodal_model, class_map, class_names_list, 
 
         # --- SHAP Explanation (Point 4) ---
         print("Running SHAP... (This may take a moment)")
-        # We pass the same predict_wrapper
         shap_explainer = SHAP2DExplainer(predict_wrapper_2d, shap_background_np)
-        
-        # Explain a single image
         shap_values = shap_explainer.explain(
             explainer_input_np.reshape(1, *explainer_input_np.shape), 
             nsamples=SHAP_NSAMPLES
@@ -176,7 +157,8 @@ def main_demo():
         return
         
     num_labels = len(class_map)
-    # FIXED: Create a sorted list of class names from the map
+    
+    # FIXED (Fix 10): Create a sorted list of class names from the map
     # This ensures class_names_list[0] == "DiseaseA", class_names_list[1] == "DiseaseB", etc.
     class_names_list = sorted(class_map.keys(), key=lambda k: class_map[k])
 
