@@ -9,10 +9,9 @@ ROOT = Path(__file__).parent
 
 # Data
 DATA_ROOT = ROOT / "data" / "raw"
-# This file will be CREATED by the data loader
 CLASS_MAP_JSON = ROOT / "data" / "class_map.json"
 
-BATCH_SIZE = 16 # Reduced for training stability
+BATCH_SIZE = 16 
 NUM_WORKERS = 4
 
 # --- 2D Configuration ---
@@ -31,11 +30,11 @@ MODALITY_CONFIG = {
 # --- Training Hyperparameters ---
 LEARNING_RATE = 1e-4
 EPOCHS = 10
-# Directory to save trained model weights
-SAVE_PATH = ROOT / "models" / "weights"
+K_FOLDS = 5 # ADDED: Number of folds for Cross-Validation
 
-# --- Model Checkpoints ---
-# These paths are where the best trained models will be saved
+# --- Paths ---
+SAVE_PATH = ROOT / "models" / "weights"
+RESULTS_DIR = ROOT / "results" # ADDED: Directory to save CV results
 MODEL_2D_CHECKPOINT = SAVE_PATH / "best_model_2d.pth"
 MODEL_3D_CHECKPOINT = SAVE_PATH / "best_model_3d.pth"
 
