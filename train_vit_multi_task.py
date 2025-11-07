@@ -84,4 +84,31 @@ def main():
     # ==============================
     t0 = time.time()
     for e in range(start_epoch, EPOCHS + 1):
-        print(f"
+        print(f"\n=== Epoch {e}/{EPOCHS} ===")
+
+        lx = train_one("XRAY", xray_dl, model, opt, crit_x, scaler)
+        ls = train_one("SKIN", skin_dl, model, opt, crit_c, scaler)
+        lm = train_one("MRI",  mri_dl,  model, opt, crit_c, scaler)
+
+        print(f"📊 Losses: XRAY={lx:.4f}, SKIN={ls:.4f}, MRI={lm:.4f}")
+
+        # --- 💾 Save checkpoint safely ---
+        ckpt = {
+            "epoch": e,
+            "model_state": model.module.state_dict() if hasattr(model, "module") else model.state_dict(),
+            "opt_state": opt.state_dict(),
+            "scaler_state": scaler.state_dict(),
+            "losses": {"XRAY": lx, "SKIN": ls, "MRI": lm},
+        }
+        ckpt_path = CHECKPOINT_DIR / f"vit_epoch{e:02d}.pt"
+        torch.save(ckpt, ckpt_path)
+        print(f"💾 Saved checkpoint: {ckpt_path}")
+
+    print("✅ Training complete in %.2f hours" % ((time.time() - t0) / 3600))
+
+
+# ==============================
+# Run
+# ==============================
+if __name__ == "__main__":
+    main()
