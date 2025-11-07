@@ -63,47 +63,31 @@ class SkinDataset(Dataset):
         root = Path(root)
         self.meta = pd.read_csv(root / "HAM10000_metadata.csv")
         self.root = root
-        self.transform = transform 
-        self.classes = sorted(self.meta["dx"].unique())
+        self.transform = transform or transforms.Compose([
+            transforms.Resize((224, 224)),
+            transforms.ToTensor(),
+            transforms.Normalize([0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+        ])
+        self.classes = sorted(self.meta['dx'].unique())
         self.class_to_idx = {c: i for i, c in enumerate(self.classes)}
-
-        # --- FIX: Handle uppercase/lowercase folders ---
-        self.image_map = {}
-        possible_folders = [
-            "HAM10000_images_part_1", "HAM10000_images_part_2",
-            "ham10000_images_part_1", "ham10000_images_part_2"
-        ]
-        for folder_name in possible_folders:
-            folder = root / folder_name
-            if folder.exists():
-                for f in folder.glob("*.jpg"):
-                    self.image_map[f.stem] = f
-
-        if not self.image_map:
-            raise FileNotFoundError("No image folders found under HAM10000 dataset root")
-
-        print(f"✅ Found {len(self.image_map)} total images in HAM10000 dataset.")
 
     def __len__(self):
         return len(self.meta)
 
     def __getitem__(self, idx):
         row = self.meta.iloc[idx]
-        img_id = row["image_id"]
-        img_path = self.image_map.get(img_id)
-
-        # --- FIX: Skip missing files gracefully ---
-        if img_path is None or not img_path.exists():
-            dummy = torch.zeros(3, IMG_SIZE_2D, IMG_SIZE_2D, dtype=torch.float32)
-            y = torch.tensor(0, dtype=torch.long)
-            return dummy, y
-
+        # ✅ Handles both folders correctly
+        part1 = self.root / "ham10000_images_part_1" / f"{row['image_id']}.jpg"
+        part2 = self.root / "HAM10000_images_part_2" / f"{row['image_id']}.jpg"
+        img_path = part1 if part1.exists() else part2
         img = Image.open(img_path).convert("RGB")
+
+        # ✅ Transform applied here
         if self.transform:
             img = self.transform(img)
 
-        y = torch.tensor(self.class_to_idx[row["dx"]], dtype=torch.long)
-        return img, y
+        label = torch.tensor(self.class_to_idx[row["dx"]], dtype=torch.long)
+        return img, label
 
 
 class MRIDataset(Dataset):
