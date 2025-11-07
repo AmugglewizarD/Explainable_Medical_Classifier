@@ -2,29 +2,46 @@
 """
 Central configuration for dataset paths, model names, hyperparameters.
 
-*** OPTIMIZED VERSION ***
-- Increased BATCH_SIZE (requires VRAM, but faster with AMP)
-- Increased NUM_WORKERS (faster data loading)
-- Decreased K_FOLDS (significant time save on CV)
+*** KAGGLE OPTIMIZED VERSION ***
+- DATA_ROOT is now a dictionary mapping modalities to their Kaggle input paths.
+- All output paths (ROOT, SAVE_PATH, RESULTS_DIR) point to /kaggle/working/
+- Optimized BATCH_SIZE, K_FOLDS, and NUM_WORKERS.
 """
 from pathlib import Path
 import torch
+import os
 
-ROOT = Path(__file__).parent
+# ROOT is the writable directory in Kaggle
+ROOT = Path("/kaggle/working/")
 
 # Data
-DATA_ROOT = ROOT / "data" / "raw"
+# --- KAGGLE CHANGE ---
+# This is the most important change.
+# You MUST update these paths to match the dataset "slugs" you add to your notebook.
+# The structure *inside* these paths should be:
+# /kaggle/input/your-xray-slug/train_labels.csv
+# /kaggle/input/your-xray-slug/test_labels.csv
+# /kaggle/input/your-xray-slug/images/00000013_005.png (etc.)
+
+DATA_ROOT = {
+    # Example: /kaggle/input/nih-chest-xray-dataset
+    "XRAY": Path("/kaggle/input/your-xray-dataset-name/"), 
+    
+    # Example: /kaggle/input/pcam-histopathology
+    "HISTOPATHOLOGY": Path("/kaggle/input/your-histo-dataset-name/"), 
+    
+    # Example: /kaggle/input/mri-head-scans
+    "MRI": Path("/kaggle/input/your-mri-dataset-name/") 
+}
+
+# All output files go to /kaggle/working/
 CLASS_MAP_JSON = ROOT / "data" / "class_map.json"
 
-# OPTIMIZED: Increased batch size. AMP helps reduce memory,
-# allowing for larger batches, which trains faster.
-# If you get "Out of Memory" errors, reduce this to 24 or 16.
+# OPTIMIZED: Increased batch size (AMP helps)
 BATCH_SIZE = 32 
-
-# OPTIMIZED: Increased num_workers.
-# This uses more CPU cores to load data, preventing
-# the GPU from waiting.
-NUM_WORKERS = 8 # Adjust based on your CPU cores (e.g., os.cpu_count())
+# OPTIMIZED: Kaggle notebooks typically have 4 vCPUs. 
+# Set this to 0 or 2 if you get dataloader errors.
+NUM_WORKERS = 4 
 
 # --- 2D Configuration ---
 IMG_SIZE_2D = 224
@@ -43,12 +60,8 @@ MODALITY_CONFIG = {
 LEARNING_RATE = 1e-4
 EPOCHS = 10
 
-# OPTIMIZED: Reduced K-Folds.
-# This is the biggest time-saver for the K-Fold process.
-# 5-fold CV is robust but time-consuming. 3-fold is a common
-# compromise for faster iteration without sacrificing *too much*
-# validation robustness.
-K_FOLDS = 3
+# OPTIMIZED: Reduced K-Folds for faster CV
+K_FOLDS = 3 
 
 # --- Paths ---
 SAVE_PATH = ROOT / "models" / "weights"
