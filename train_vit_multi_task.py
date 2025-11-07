@@ -86,14 +86,14 @@ def main():
 
     for e in range(start_epoch, EPOCHS + 1):
         t0 = time.time()
-        # XRAY uses BCEWithLogits (multi-label)
+
+        ls = train_one("SKIN", skin_dl, model, opt, crit_ce, scaler if scaler else amp.GradScaler(enabled=False))
+        lm = train_one("MRI", mri_dl, model, opt, crit_ce, scaler if scaler else amp.GradScaler(enabled=False))
+    # XRAY uses BCEWithLogits (multi-label)
         lx = train_one("XRAY", xray_dl, model, opt, crit_x, scaler if scaler else amp.GradScaler(enabled=False))
         # SKIN and MRI use CrossEntropy (single-label); ensure labels are long dtype
         # wrap dataloader labels correctly
         # For skin and mri we need CrossEntropyLoss expecting (B,) targets
-        ls = train_one("SKIN", skin_dl, model, opt, crit_ce, scaler if scaler else amp.GradScaler(enabled=False))
-        lm = train_one("MRI", mri_dl, model, opt, crit_ce, scaler if scaler else amp.GradScaler(enabled=False))
-
         print(f"Epoch {e}: XRAY={lx:.4f}, SKIN={ls:.4f}, MRI={lm:.4f}  time={(time.time()-t0)/60:.2f}min")
         save_checkpoint(e, model, opt, scaler)
 
