@@ -41,7 +41,8 @@ def create_model_and_optim(n_xray, n_skin, n_mri):
     opt = optim.AdamW(model.parameters(), lr=LR)
     return model, opt
 
-def save_checkpoint(epoch, model, opt, scaler, out_dir=CHECKPOINT_DIR):
+# --- MODIFIED: Added 'suffix' argument to save intermediate checkpoints ---
+def save_checkpoint(epoch, model, opt, scaler, suffix, out_dir=CHECKPOINT_DIR):
     ckpt = {
         "epoch": epoch,
         "model_state": model.module.state_dict() if hasattr(model, "module") else model.state_dict(),
@@ -49,7 +50,8 @@ def save_checkpoint(epoch, model, opt, scaler, out_dir=CHECKPOINT_DIR):
         "scaler_state": scaler.state_dict()
     }
     Path(out_dir).mkdir(parents=True, exist_ok=True)
-    path = Path(out_dir) / f"vit_epoch{epoch:02d}.pt"
+    # --- MODIFIED: Filename now includes the suffix ---
+    path = Path(out_dir) / f"vit_epoch{epoch:02d}_{suffix}.pt"
     torch.save(ckpt, path)
     print(f"Saved checkpoint: {path}")
 
@@ -82,20 +84,31 @@ def main():
         opt.load_state_dict(ckpt["opt_state"])
         if scaler and "scaler_state" in ckpt:
             scaler.load_state_dict(ckpt["scaler_state"])
-        start_epoch = ckpt.get("epoch", 1) + 1
+        
+        # --- MODIFIED: Robust resume logic ---
+        # Get the epoch from the checkpoint. We will re-run this epoch
+        # to ensure all tasks are completed, even if interrupted.
+        start_epoch = ckpt.get("epoch", 1)
+        print(f"Restarting at epoch {start_epoch} to ensure all tasks are complete.")
 
     for e in range(start_epoch, EPOCHS + 1):
         t0 = time.time()
 
+        # --- MODIFIED: Save checkpoint after each task ---
+        
+        # 1. TRAIN SKIN
         ls = train_one("SKIN", skin_dl, model, opt, crit_ce, scaler if scaler else amp.GradScaler(enabled=False))
+        save_checkpoint(e, model, opt, scaler, "skin_done")
+
+        # 2. TRAIN MRI
         lm = train_one("MRI", mri_dl, model, opt, crit_ce, scaler if scaler else amp.GradScaler(enabled=False))
-    # XRAY uses BCEWithLogits (multi-label)
+        save_checkpoint(e, model, opt, scaler, "mri_done")
+
+        # 3. TRAIN XRAY (Last, as requested)
         lx = train_one("XRAY", xray_dl, model, opt, crit_x, scaler if scaler else amp.GradScaler(enabled=False))
-        # SKIN and MRI use CrossEntropy (single-label); ensure labels are long dtype
-        # wrap dataloader labels correctly
-        # For skin and mri we need CrossEntropyLoss expecting (B,) targets
+        save_checkpoint(e, model, opt, scaler, "xray_final") # This is the final save for the epoch
+        
         print(f"Epoch {e}: XRAY={lx:.4f}, SKIN={ls:.4f}, MRI={lm:.4f}  time={(time.time()-t0)/60:.2f}min")
-        save_checkpoint(e, model, opt, scaler)
 
 if __name__=="__main__":
     main()
