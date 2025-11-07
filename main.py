@@ -46,7 +46,7 @@ def load_trained_model(num_xray, num_skin, num_mri):
     # Load state dict
     ckpt = torch.load(latest_ckpt_path, map_location=DEVICE)
     
-    # Adjust for DataParallel prefix 'module.' if it was saved with it
+    # Adjust for DataParallel prefix if it exists
     model_state = ckpt["model_state"]
     if next(iter(model_state.keys())).startswith("module."):
         model_state = {k.replace("module.", ""): v for k, v in model_state.items()}
@@ -162,7 +162,7 @@ def demo_modality_2d(model, task_name, class_names, sample_count=4):
         nsamples=SHAP_NSAMPLES
     )
     
-    shap_save_path = RESULTS_DIR / f"shap_explanation_{task_name}.png"
+    shap_save_path = RESULTS_DIR / f"shap_explanation_{task_name}.png
     show_shap_explanation(
         shap_values, 
         explainer_input_np,
