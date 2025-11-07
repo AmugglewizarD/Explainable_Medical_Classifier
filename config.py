@@ -1,6 +1,11 @@
 # config.py
 """
 Central configuration for dataset paths, model names, hyperparameters.
+
+*** OPTIMIZED VERSION ***
+- Increased BATCH_SIZE (requires VRAM, but faster with AMP)
+- Increased NUM_WORKERS (faster data loading)
+- Decreased K_FOLDS (significant time save on CV)
 """
 from pathlib import Path
 import torch
@@ -11,8 +16,15 @@ ROOT = Path(__file__).parent
 DATA_ROOT = ROOT / "data" / "raw"
 CLASS_MAP_JSON = ROOT / "data" / "class_map.json"
 
-BATCH_SIZE = 16 
-NUM_WORKERS = 4
+# OPTIMIZED: Increased batch size. AMP helps reduce memory,
+# allowing for larger batches, which trains faster.
+# If you get "Out of Memory" errors, reduce this to 24 or 16.
+BATCH_SIZE = 32 
+
+# OPTIMIZED: Increased num_workers.
+# This uses more CPU cores to load data, preventing
+# the GPU from waiting.
+NUM_WORKERS = 8 # Adjust based on your CPU cores (e.g., os.cpu_count())
 
 # --- 2D Configuration ---
 IMG_SIZE_2D = 224
@@ -30,7 +42,13 @@ MODALITY_CONFIG = {
 # --- Training Hyperparameters ---
 LEARNING_RATE = 1e-4
 EPOCHS = 10
-K_FOLDS = 5 
+
+# OPTIMIZED: Reduced K-Folds.
+# This is the biggest time-saver for the K-Fold process.
+# 5-fold CV is robust but time-consuming. 3-fold is a common
+# compromise for faster iteration without sacrificing *too much*
+# validation robustness.
+K_FOLDS = 3
 
 # --- Paths ---
 SAVE_PATH = ROOT / "models" / "weights"
