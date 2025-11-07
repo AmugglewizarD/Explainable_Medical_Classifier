@@ -60,11 +60,14 @@ MODALITY_CONFIG = {
 # ============================================================
 
 # For HuggingFace Transformers
-# Example: "google/vit-base-patch16-224-in21k"
 VIT_2D_PRETRAINED = "google/vit-base-patch16-224-in21k"
+
+# Optional local checkpoint for fine-tuning
+MODEL_2D_CHECKPOINT = None  # e.g., Path("checkpoints/vit_pretrained.pt") if you have one
 
 # If using timm instead of transformers:
 # VIT_2D_PRETRAINED = "vit_base_patch16_224"
+
 
 # ============================================================
 # 🧩 Other Model Backbones
