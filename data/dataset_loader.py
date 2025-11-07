@@ -5,6 +5,7 @@ from PIL import Image
 import torch
 from torch.utils.data import Dataset, DataLoader
 from torchvision import transforms
+from config import VAL_TRANSFORM, IMG_SIZE_2D
 from config import KAGGLE_PATHS, IMG_SIZE_2D, BATCH_SIZE, NUM_WORKERS
 
 # Single transform used for all 2D tasks
@@ -62,7 +63,7 @@ class SkinDataset(Dataset):
         root = Path(root)
         self.meta = pd.read_csv(root / "HAM10000_metadata.csv")
         self.root = root
-        self.transform = transform or VAL_TRANSFORM
+        self.transform = transform 
         self.classes = sorted(self.meta["dx"].unique())
         self.class_to_idx = {c: i for i, c in enumerate(self.classes)}
 
@@ -93,7 +94,7 @@ class SkinDataset(Dataset):
 
         # --- FIX: Skip missing files gracefully ---
         if img_path is None or not img_path.exists():
-            dummy = torch.zeros(3, IMG_SIZE, IMG_SIZE, dtype=torch.float32)
+            dummy = torch.zeros(3, IMG_SIZE_2D, IMG_SIZE_2D, dtype=torch.float32)
             y = torch.tensor(0, dtype=torch.long)
             return dummy, y
 

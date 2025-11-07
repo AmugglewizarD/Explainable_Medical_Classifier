@@ -28,3 +28,18 @@ CHECKPOINT_DIR.mkdir(parents=True, exist_ok=True)
 
 # pretrained ViT (transformers)
 VIT_PRETRAINED = "google/vit-base-patch16-224-in21k"
+# --- Image Sizes ---
+IMG_SIZE_2D = 224
+IMG_SIZE_3D = (96, 96, 96)
+
+# --- Default Transform (for Validation / Loading) ---
+from torchvision import transforms
+
+VAL_TRANSFORM = transforms.Compose([
+    transforms.Resize((IMG_SIZE_2D, IMG_SIZE_2D)),
+    transforms.CenterCrop((IMG_SIZE_2D, IMG_SIZE_2D)),
+    transforms.ToTensor(),
+    transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                         std=[0.229, 0.224, 0.225])
+])
+
