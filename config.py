@@ -1,7 +1,7 @@
 from pathlib import Path
 
 IMG_SIZE_2D = 224
-BATCH_SIZE = 8
+BATCH_SIZE = 16
 NUM_WORKERS = 2
 
 DATA_ROOT = Path("data")
