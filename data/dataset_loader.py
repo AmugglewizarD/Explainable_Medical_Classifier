@@ -60,46 +60,103 @@ class NIHChestXrayDataset(Dataset):
 class SkinDataset(Dataset):
     def __init__(self, root, transform=None):
         root = Path(root)
-        self.root = root
         self.meta = pd.read_csv(root / "HAM10000_metadata.csv")
-        self.transform = transform or TRANSFORM
+        self.root = root
+        self.transform = transform or VAL_TRANSFORM
         self.classes = sorted(self.meta["dx"].unique())
-        self.class_to_idx = {c:i for i,c in enumerate(self.classes)}
+        self.class_to_idx = {c: i for i, c in enumerate(self.classes)}
+
+        # --- FIX: Handle uppercase/lowercase folders ---
+        self.image_map = {}
+        possible_folders = [
+            "HAM10000_images_part_1", "HAM10000_images_part_2",
+            "ham10000_images_part_1", "ham10000_images_part_2"
+        ]
+        for folder_name in possible_folders:
+            folder = root / folder_name
+            if folder.exists():
+                for f in folder.glob("*.jpg"):
+                    self.image_map[f.stem] = f
+
+        if not self.image_map:
+            raise FileNotFoundError("No image folders found under HAM10000 dataset root")
+
+        print(f"✅ Found {len(self.image_map)} total images in HAM10000 dataset.")
 
     def __len__(self):
         return len(self.meta)
 
     def __getitem__(self, idx):
         row = self.meta.iloc[idx]
-        img_path = self.root / "ham10000_images_part_1" / f"{row['image_id']}.jpg"
-        img = Image.open(img_path).convert("RGB")
-        img = self.transform(img)
-        label = self.class_to_idx[row["dx"]]
-        return img, torch.tensor(label, dtype=torch.long)
+        img_id = row["image_id"]
+        img_path = self.image_map.get(img_id)
 
-class MRISliceDataset(Dataset):
-    """
-    Safe MRI dataset that treats each sample as an image (if provided as jpg/png).
-    If your MRI dataset is not slice images, convert/preprocess separately.
-    """
+        # --- FIX: Skip missing files gracefully ---
+        if img_path is None or not img_path.exists():
+            dummy = torch.zeros(3, IMG_SIZE, IMG_SIZE, dtype=torch.float32)
+            y = torch.tensor(0, dtype=torch.long)
+            return dummy, y
+
+        img = Image.open(img_path).convert("RGB")
+        if self.transform:
+            img = self.transform(img)
+
+        y = torch.tensor(self.class_to_idx[row["dx"]], dtype=torch.long)
+        return img, y
+
+
+class MRIDataset(Dataset):
     def __init__(self, root, transform=None):
         root = Path(root)
-        self.samples = []
-        for p in root.rglob("*"):
-            if p.suffix.lower() in [".png", ".jpg", ".jpeg"]:
-                # label by parent folder name
-                label = p.parent.name
-                self.samples.append((p, label))
-        self.transform = transform or TRANSFORM
-        self.classes = sorted(list({lab for _,lab in self.samples}))
-        self.class_to_idx = {c:i for i,c in enumerate(self.classes)}
+        self.transform = transform or VAL_TRANSFORM
+        self.root = root
 
-    def __len__(self): return len(self.samples)
+        # --- FIX: Support different folder naming conventions ---
+        possible_folders = ["yes", "no", "Yes", "No", "Tumor", "NoTumor"]
+        self.image_paths = []
+        self.labels = []
+
+        for folder_name in possible_folders:
+            folder = root / folder_name
+            if folder.exists():
+                label = 1 if "yes" in folder_name.lower() or "tumor" in folder_name.lower() else 0
+                for ext in ("*.jpg", "*.jpeg", "*.png"):
+                    for img_path in folder.glob(ext):
+                        self.image_paths.append(img_path)
+                        self.labels.append(label)
+
+        if not self.image_paths:
+            raise FileNotFoundError(
+                f"❌ No valid MRI image folders found under {root}. "
+                "Expected 'yes/no' or 'Tumor/NoTumor' structure."
+            )
+
+        self.classes = ["NoTumor", "Tumor"]
+        self.class_to_idx = {"NoTumor": 0, "Tumor": 1}
+
+        print(f"✅ Found {len(self.image_paths)} MRI images in total under {root}")
+
+    def __len__(self):
+        return len(self.image_paths)
+
     def __getitem__(self, idx):
-        p, lab = self.samples[idx]
-        img = Image.open(p).convert("RGB")
-        img = self.transform(img)
-        return img, torch.tensor(self.class_to_idx[lab], dtype=torch.long)
+        img_path = self.image_paths[idx]
+        label = self.labels[idx]
+
+        # --- FIX: Handle missing or corrupt files gracefully ---
+        try:
+            img = Image.open(img_path).convert("RGB")
+        except Exception as e:
+            print(f"⚠️ Skipping unreadable file: {img_path} ({e})")
+            dummy = torch.zeros(3, IMG_SIZE_2D, IMG_SIZE_2D, dtype=torch.float32)
+            return dummy, torch.tensor(0, dtype=torch.long)
+
+        if self.transform:
+            img = self.transform(img)
+
+        y = torch.tensor(label, dtype=torch.long)
+        return img, y
+
 
 def get_dataloader(modality, batch_size=BATCH_SIZE, shuffle=True, num_workers=NUM_WORKERS):
     m = modality.upper()
