@@ -113,7 +113,7 @@ def main():
 
     # --- Resume optimizer/scaler only ---
     ckpts = sorted(Path(CHECKPOINT_DIR).glob("vit_epoch*.pt"))
-    start_epoch = 5
+    start_epoch = 9
     if ckpts:
         latest = ckpts[-1]
         print("🔁 Resuming optimizer/scaler from", latest)
