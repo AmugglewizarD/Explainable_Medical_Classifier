@@ -40,7 +40,25 @@ def create_model_and_optim(n_xray, n_skin, n_mri):
         latest = ckpts[-1]
         print("Resuming from", latest)
         ckpt = torch.load(latest, map_location=DEVICE)
-        model.load_state_dict(ckpt["model_state"], strict=False)
+        # --- Load checkpoint safely no matter if it has 'module.' or not ---
+        state_dict = ckpt["model_state"]
+        model_state = model.state_dict()
+
+        # Check if 'module.' prefix mismatch exists
+        if list(state_dict.keys())[0].startswith("vit.") and list(model_state.keys())[0].startswith("module."):
+            # Add 'module.' prefix to all keys
+            print("🧩 Adding 'module.' prefix to checkpoint keys (single-GPU → multi-GPU fix)")
+            new_state_dict = {f"module.{k}": v for k, v in state_dict.items()}
+            state_dict = new_state_dict
+        elif list(state_dict.keys())[0].startswith("module.") and not list(model_state.keys())[0].startswith("module."):
+            # Remove 'module.' prefix if loading multi-GPU → single-GPU
+            print("🧩 Removing 'module.' prefix from checkpoint keys (multi-GPU → single-GPU fix)")
+            new_state_dict = {k.replace("module.", "", 1): v for k, v in state_dict.items()}
+            state_dict = new_state_dict
+
+missing, unexpected = model.load_state_dict(state_dict, strict=False)
+print(f"✅ Loaded checkpoint successfully. Missing: {len(missing)}, Unexpected: {len(unexpected)}")
+
         print("✅ Loaded checkpoint successfully")
 
     # Now wrap if multiple GPUs
