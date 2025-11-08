@@ -87,7 +87,7 @@ def save_checkpoint(epoch, model, opt, scaler, suffix, out_dir=CHECKPOINT_DIR):
         "scaler_state": scaler.state_dict()
     }
     Path(out_dir).mkdir(parents=True, exist_ok=True)
-    path = Path(out_dir) / f"vit_epoch{epoch:02d}_{suffix}.pt"
+    path = Path(out_dir) / f"vit_epoch{epoch:02d}_skin_mri_only.pt"
     torch.save(ckpt, path)
     print(f"💾 Saved checkpoint: {path}")
 
@@ -151,6 +151,7 @@ def main():
 
         # lx = train_one("XRAY", xray_dl, model, opt, crit_x, scaler if scaler else amp.GradScaler(enabled=False))
         # save_checkpoint(e, model, opt, scaler, "xray_final")
+        lx = 0.0
 
         print(f"✅ Epoch {e} complete | XRAY={lx:.4f}, SKIN={ls:.4f}, MRI={lm:.4f} | Time={(time.time()-t0)/60:.2f} min")
 
