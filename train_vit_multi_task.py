@@ -149,8 +149,8 @@ def main():
         lm = train_one("MRI", mri_dl, model, opt, crit_ce, scaler if scaler else amp.GradScaler(enabled=False))
         save_checkpoint(e, model, opt, scaler, "mri_done")
 
-        lx = train_one("XRAY", xray_dl, model, opt, crit_x, scaler if scaler else amp.GradScaler(enabled=False))
-        save_checkpoint(e, model, opt, scaler, "xray_final")
+        # lx = train_one("XRAY", xray_dl, model, opt, crit_x, scaler if scaler else amp.GradScaler(enabled=False))
+        # save_checkpoint(e, model, opt, scaler, "xray_final")
 
         print(f"✅ Epoch {e} complete | XRAY={lx:.4f}, SKIN={ls:.4f}, MRI={lm:.4f} | Time={(time.time()-t0)/60:.2f} min")
 
