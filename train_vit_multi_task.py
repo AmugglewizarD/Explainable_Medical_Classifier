@@ -56,8 +56,8 @@ def create_model_and_optim(n_xray, n_skin, n_mri):
             new_state_dict = {k.replace("module.", "", 1): v for k, v in state_dict.items()}
             state_dict = new_state_dict
 
-missing, unexpected = model.load_state_dict(state_dict, strict=False)
-print(f"✅ Loaded checkpoint successfully. Missing: {len(missing)}, Unexpected: {len(unexpected)}")
+        missing, unexpected = model.load_state_dict(state_dict, strict=False)
+        print(f"✅ Loaded checkpoint successfully. Missing: {len(missing)}, Unexpected: {len(unexpected)}")
 
         print("✅ Loaded checkpoint successfully")
 
