@@ -102,9 +102,10 @@ def main():
 
     scaler = amp.GradScaler() if USE_AMP else None
 
-    start_epoch = 1
-    # resume pick the latest checkpoint automatically (if exists)
-# --- Resume optimizer and scaler only; model already loaded in create_model_and_optim() ---
+    # ============================
+    # 🔁 RESUME LOGIC MODIFIED HERE
+    # ============================
+    # We resume from the latest checkpoint (expected vit_epoch04_xray_final.pt)
     ckpts = sorted(Path(CHECKPOINT_DIR).glob("vit_epoch*.pt"))
     start_epoch = 5   # <-- Default start for continuation
     if ckpts:
@@ -119,6 +120,10 @@ def main():
         print(f"✅ Loaded checkpoint up to epoch {start_epoch - 1}. Resuming at epoch {start_epoch}.")
     else:
         print("⚠️ No checkpoint found, training from scratch.")
+
+    # Run exactly 4 more epochs
+    end_epoch = start_epoch + 3
+    print(f"Training from epoch {start_epoch} to {end_epoch}...")
 
 
     for e in range(start_epoch, EPOCHS + 1):
