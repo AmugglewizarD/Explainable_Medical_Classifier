@@ -104,21 +104,25 @@ def main():
 
     start_epoch = 1
     # resume pick the latest checkpoint automatically (if exists)
+# --- Resume optimizer and scaler only; model already loaded in create_model_and_optim() ---
     ckpts = sorted(Path(CHECKPOINT_DIR).glob("vit_epoch*.pt"))
     if ckpts:
         latest = ckpts[-1]
-        print("Resuming from", latest)
+        print("Resuming training state from", latest)
         ckpt = torch.load(latest, map_location=DEVICE)
-        model.load_state_dict(ckpt["model_state"])
-        opt.load_state_dict(ckpt["opt_state"])
+        try:
+            opt.load_state_dict(ckpt["opt_state"])
+        except Exception as e:
+            print("⚠️  Could not load optimizer state:", e)
         if scaler and "scaler_state" in ckpt:
-            scaler.load_state_dict(ckpt["scaler_state"])
-        
-        # --- MODIFIED: Robust resume logic ---
-        # Get the epoch from the checkpoint. We will re-run this epoch
-        # to ensure all tasks are completed, even if interrupted.
+            try:
+                scaler.load_state_dict(ckpt["scaler_state"])
+            except Exception as e:
+                print("⚠️  Could not load scaler state:", e)
+
         start_epoch = ckpt.get("epoch", 1)
         print(f"Restarting at epoch {start_epoch} to ensure all tasks are complete.")
+
 
     for e in range(start_epoch, EPOCHS + 1):
         t0 = time.time()
