@@ -15,6 +15,7 @@ import matplotlib.pyplot as plt
 from torchvision import transforms
 from PIL import Image
 from pathlib import Path
+from models.multitask_vit import MultiTaskViT
 import timm
 import shap
 from lime import lime_image
@@ -31,26 +32,7 @@ OUT_DIR.mkdir(exist_ok=True)
 # ----------------------------------------------------
 
 
-# ---------------------- MODEL ----------------------
-class MultiTaskViT(nn.Module):
-    def __init__(self, n_xray, n_skin, n_mri):
-        super().__init__()
-        self.vit = timm.create_model("vit_base_patch16_224", pretrained=True, num_classes=0)
-        hidden = getattr(self.vit, "embed_dim", 192)
-        self.head_xray = nn.Linear(hidden, n_xray)
-        self.head_skin = nn.Linear(hidden, n_skin)
-        self.head_mri  = nn.Linear(hidden, n_mri)
-
-    def forward(self, x, task):
-        feats = self.vit(x)
-        if task == "XRAY":
-            return self.head_xray(feats)
-        elif task == "SKIN":
-            return self.head_skin(feats)
-        elif task == "MRI":
-            return self.head_mri(feats)
-        else:
-            raise ValueError(f"Unknown task: {task}")
+#model
         
 def vit_reshape_transform(tensor, height=14, width=14):
     # tensor shape: [B, Tokens, D]
