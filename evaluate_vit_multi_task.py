@@ -109,7 +109,7 @@ def main():
     nm = len(mri_dl.dataset.classes)
     
     # --- Load Model ---
-    ckpt_path = "/kaggle/input/vit-12/pytorch/default/1/vit_epoch12_skin_mri_only.pt"  # change this if needed
+    ckpt_path = "/kaggle/input/vit-21/pytorch/default/1/vit_epoch21_skin_mri_only.pt"  # change this if needed
     model = load_model(ckpt_path, nx, ns, nm)
 
     # --- Run Evaluation ---
